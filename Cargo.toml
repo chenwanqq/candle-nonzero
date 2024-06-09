@@ -1,0 +1,20 @@
+[package]
+name = "candle-nonzero"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.6.0", features = ["cuda"] }
+half = "2.4.1"
+cudarc = "0.11.4"
+rayon = "1.10"
+
+[build-dependencies]
+bindgen_cuda = "0.1.5"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "nonzero"
+harness = false
