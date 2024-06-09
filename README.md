@@ -36,6 +36,6 @@ testing on  4090 GPU and 16 vCPU Intel(R) Xeon(R) Platinum 8352V CPU @ 2.10GHz
 |  Type  | Performance |
 | -----------   | -----------     |
 | GPU     | 52.509 µs           |
-| CPU(rayon Parallel)           |     78.130ms            |
-| CPU(sequential)| 2.2676ms |
+| CPU(rayon Parallel)           |     78.130 ms            |
+| CPU(sequential)| 2.2676 ms |
 
