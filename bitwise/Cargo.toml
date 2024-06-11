@@ -1,0 +1,15 @@
+[package]
+name = "bitwise"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+candle-core = { workspace = true }
+half = { workspace = true }
+cudarc = { workspace = true }
+
+[build-dependencies]
+bindgen_cuda = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

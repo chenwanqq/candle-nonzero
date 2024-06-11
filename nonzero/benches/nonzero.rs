@@ -1,5 +1,5 @@
 use candle_core::Tensor;
-use candle_nonzero::NonZeroOp;
+use nonzero::NonZeroOp;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {

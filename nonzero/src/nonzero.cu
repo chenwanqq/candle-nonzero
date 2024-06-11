@@ -1,4 +1,5 @@
-//Get inspiration from https://github.com/pytorch/pytorch/blob/65aa16f968af2cd18ff8c25cc657e7abda594bfc/aten/src/ATen/native/cuda/Nonzero.cu
+// Get inspiration from
+// https://github.com/pytorch/pytorch/blob/65aa16f968af2cd18ff8c25cc657e7abda594bfc/aten/src/ATen/native/cuda/Nonzero.cu
 
 #include <cub/cub.cuh>
 #include <stdint.h>
@@ -20,8 +21,8 @@ void count_nonzero(const T *d_in, const uint32_t N, uint32_t *h_out) {
   cub::DeviceReduce::Sum(nullptr, temp_storage_bytes, itr, d_num_nonzero, N);
   void **d_temp_storage;
   cudaMalloc(&d_temp_storage, temp_storage_bytes);
-  cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, itr,
-                         d_num_nonzero, N);
+  cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, itr, d_num_nonzero,
+                         N);
   cudaMemcpy(h_out, d_num_nonzero, sizeof(uint32_t), cudaMemcpyDeviceToHost);
   cudaFree(d_num_nonzero);
   cudaFree(d_temp_storage);
@@ -63,6 +64,14 @@ __global__ void transform_indices(const uint32_t *temp_indices,
   }
 }
 
+int next_power_of_2(const uint32_t num_nonzero) {
+  int result = 1;
+  while (result < num_nonzero) {
+    result <<= 1;
+  }
+  return result;
+}
+
 // get the indices of non-zero elements in an array
 template <typename T>
 void nonzero(const T *d_in, const uint32_t N, const uint32_t num_nonzero,
@@ -81,7 +90,10 @@ void nonzero(const T *d_in, const uint32_t N, const uint32_t num_nonzero,
   cudaMalloc(&d_temp_storage, temp_storage_bytes);
   cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, counting_itr,
                              itr, out_temp, num_selected_out, (int)N);
-  const int nthreads = 256;
+  int nthreads = next_power_of_2(num_nonzero);
+  if (nthreads > 1024) {
+    nthreads = 1024;
+  }
   const int nblocks = (num_nonzero + nthreads - 1) / nthreads;
   transform_indices<<<nblocks, nthreads>>>(out_temp, num_nonzero, dims,
                                            num_dims, d_out);
@@ -93,9 +105,9 @@ void nonzero(const T *d_in, const uint32_t N, const uint32_t num_nonzero,
 
 #define NONZERO_OP(TYPENAME, RUST_NAME)                                        \
   extern "C" void nonzero_##RUST_NAME(                                         \
-      const TYPENAME *d_in, uint32_t N, uint32_t num_nonzero,                 \
+      const TYPENAME *d_in, uint32_t N, uint32_t num_nonzero,                  \
       const uint32_t *dims, uint32_t num_dims, uint32_t *d_out) {              \
-    nonzero(d_in, N, num_nonzero, dims, num_dims, d_out);                     \
+    nonzero(d_in, N, num_nonzero, dims, num_dims, d_out);                      \
   }
 
 //#if __CUDA_ARCH__ >= 800

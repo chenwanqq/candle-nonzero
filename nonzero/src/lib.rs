@@ -7,7 +7,6 @@ use candle_core::{
     Result, Shape, Tensor, WithDType,
 };
 use half::{bf16, f16};
-use rayon::prelude::*;
 
 struct NonZero {}
 impl NonZero {
@@ -31,9 +30,9 @@ impl NonZero {
         }
         result
     }
-
     // Parallel version
     /*
+    use rayon::prelude::*;
     fn nonzero<T: WithDType>(&self, vs: &[T], layout: &Layout) -> Vec<u32> {
         let n = layout.dims().len();
         let result = vs
@@ -114,6 +113,9 @@ impl CustomOp1 for NonZero {
     }
 
     fn cpu_fwd(&self, storage: &CpuStorage, layout: &Layout) -> Result<(CpuStorage, Shape)> {
+        if !layout.is_contiguous() {
+            return Err(Error::RequiresContiguous { op: "nonzero" });
+        }
         let result = match storage {
             candle_core::CpuStorage::U8(vs) => self.nonzero(vs, layout),
             candle_core::CpuStorage::U32(vs) => self.nonzero(vs, layout),
@@ -135,6 +137,9 @@ impl CustomOp1 for NonZero {
         storage: &candle_core::CudaStorage,
         layout: &Layout,
     ) -> Result<(candle_core::CudaStorage, Shape)> {
+        if !layout.is_contiguous() {
+            return Err(candle_core::Error::RequiresContiguous { op: "nonzero" });
+        }
         let dev = storage.device().clone();
         let d_in = match storage.dtype() {
             candle_core::DType::U8 => *storage.as_cuda_slice::<u8>()?.device_ptr(),
