@@ -12,7 +12,7 @@ use rayon::prelude::*;
 struct NonZero {}
 impl NonZero {
     // Sequential version
-    
+
     fn nonzero<T: WithDType>(&self, vs: &[T], layout: &Layout) -> Vec<u32> {
         let n = layout.dims().len();
         let mut result = Vec::new();
@@ -31,10 +31,9 @@ impl NonZero {
         }
         result
     }
-    
-    
+
     // Parallel version
-    /* 
+    /*
     fn nonzero<T: WithDType>(&self, vs: &[T], layout: &Layout) -> Vec<u32> {
         let n = layout.dims().len();
         let result = vs
@@ -59,6 +58,54 @@ impl NonZero {
         result
     }
     */
+}
+
+fn count_nonzero(dtype: candle_core::DType, d_in: *const c_void, n: u32) -> u32 {
+    unsafe {
+        match dtype {
+            candle_core::DType::U8 => ffi::count_nonzero_u8(d_in, n),
+            candle_core::DType::U32 => ffi::count_nonzero_u32(d_in, n),
+            candle_core::DType::I64 => ffi::count_nonzero_i64(d_in, n),
+            candle_core::DType::BF16 => ffi::count_nonzero_bf16(d_in, n),
+            candle_core::DType::F16 => ffi::count_nonzero_f16(d_in, n),
+            candle_core::DType::F32 => ffi::count_nonzero_f32(d_in, n),
+            candle_core::DType::F64 => ffi::count_nonzero_f64(d_in, n),
+        }
+    }
+}
+
+fn nonzero(
+    dtype: candle_core::DType,
+    d_in: *const c_void,
+    n: u32,
+    num_nonzero: u32,
+    dims: *const c_void,
+    num_dims: u32,
+    d_out: *mut c_void,
+) {
+    unsafe {
+        match dtype {
+            candle_core::DType::U8 => ffi::nonzero_u8(d_in, n, num_nonzero, dims, num_dims, d_out),
+            candle_core::DType::U32 => {
+                ffi::nonzero_u32(d_in, n, num_nonzero, dims, num_dims, d_out)
+            }
+            candle_core::DType::I64 => {
+                ffi::nonzero_i64(d_in, n, num_nonzero, dims, num_dims, d_out)
+            }
+            candle_core::DType::BF16 => {
+                ffi::nonzero_bf16(d_in, n, num_nonzero, dims, num_dims, d_out)
+            }
+            candle_core::DType::F16 => {
+                ffi::nonzero_f16(d_in, n, num_nonzero, dims, num_dims, d_out)
+            }
+            candle_core::DType::F32 => {
+                ffi::nonzero_f32(d_in, n, num_nonzero, dims, num_dims, d_out)
+            }
+            candle_core::DType::F64 => {
+                ffi::nonzero_f64(d_in, n, num_nonzero, dims, num_dims, d_out)
+            }
+        }
+    }
 }
 
 impl CustomOp1 for NonZero {
@@ -99,17 +146,7 @@ impl CustomOp1 for NonZero {
             candle_core::DType::F64 => *storage.as_cuda_slice::<f64>()?.device_ptr(),
         } as *const c_void;
         let n = layout.shape().elem_count();
-        let num_nonzero = unsafe {
-            match storage.dtype() {
-                candle_core::DType::U8 => ffi::count_nonzero_u8(d_in, n as u32),
-                candle_core::DType::U32 => ffi::count_nonzero_u32(d_in, n as u32),
-                candle_core::DType::I64 => ffi::count_nonzero_i64(d_in, n as u32),
-                candle_core::DType::BF16 => ffi::count_nonzero_bf16(d_in, n as u32),
-                candle_core::DType::F16 => ffi::count_nonzero_f16(d_in, n as u32),
-                candle_core::DType::F32 => ffi::count_nonzero_f32(d_in, n as u32),
-                candle_core::DType::F64 => ffi::count_nonzero_f64(d_in, n as u32),
-            }
-        };
+        let num_nonzero = count_nonzero(storage.dtype(), d_in, n as u32);
         let d_out = unsafe { dev.alloc::<u32>(num_nonzero as usize * layout.dims().len()) }
             .map_err(|_| Error::Msg("Failed to allocate memory for nonzero result".to_string()))?;
         let d_out_ptr = *d_out.device_ptr() as *mut c_void;
@@ -122,66 +159,15 @@ impl CustomOp1 for NonZero {
             .htod_copy(dims)
             .map_err(|_| Error::Msg("Failed to copy dims to device".to_string()))?;
         let d_dims_ptr = *d_dims.device_ptr() as *const c_void;
-        unsafe {
-            match storage.dtype() {
-                candle_core::DType::U8 => ffi::nonzero_u8(
-                    d_in,
-                    n as u32,
-                    num_nonzero,
-                    d_dims_ptr,
-                    layout.dims().len() as u32,
-                    d_out_ptr,
-                ),
-                candle_core::DType::U32 => ffi::nonzero_u32(
-                    d_in,
-                    n as u32,
-                    num_nonzero,
-                    d_dims_ptr,
-                    layout.dims().len() as u32,
-                    d_out_ptr,
-                ),
-                candle_core::DType::I64 => ffi::nonzero_i64(
-                    d_in,
-                    n as u32,
-                    num_nonzero,
-                    d_dims_ptr,
-                    layout.dims().len() as u32,
-                    d_out_ptr,
-                ),
-                candle_core::DType::BF16 => ffi::nonzero_bf16(
-                    d_in,
-                    n as u32,
-                    num_nonzero,
-                    d_dims_ptr,
-                    layout.dims().len() as u32,
-                    d_out_ptr,
-                ),
-                candle_core::DType::F16 => ffi::nonzero_f16(
-                    d_in,
-                    n as u32,
-                    num_nonzero,
-                    d_dims_ptr,
-                    layout.dims().len() as u32,
-                    d_out_ptr,
-                ),
-                candle_core::DType::F32 => ffi::nonzero_f32(
-                    d_in,
-                    n as u32,
-                    num_nonzero,
-                    d_dims_ptr,
-                    layout.dims().len() as u32,
-                    d_out_ptr,
-                ),
-                candle_core::DType::F64 => ffi::nonzero_f64(
-                    d_in,
-                    n as u32,
-                    num_nonzero,
-                    d_dims_ptr,
-                    layout.dims().len() as u32,
-                    d_out_ptr,
-                ),
-            }
-        };
+        nonzero(
+            storage.dtype(),
+            d_in,
+            n as u32,
+            num_nonzero,
+            d_dims_ptr,
+            layout.dims().len() as u32,
+            d_out_ptr,
+        );
         let shape = Shape::from_dims(&[num_nonzero as usize, layout.dims().len()]);
         let dst = candle_core::CudaStorage::wrap_cuda_slice(d_out, dev);
         Ok((dst, shape))
